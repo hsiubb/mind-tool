@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="./jquery.js"></script>
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            padding: 0;
+            margin: 0;
+        }
+        html {
+            font-size: 16px;
+            --theme: #02b711;
+            --warning: #ff3535;
+            --line: 2px solid #999;
+        }
+        #page {
+            display: flex;
+            padding: 16px 16px 300px;
+            color: #333;
+        }
+        .col {
+            position: relative;
+            min-width: 5vw;
+            display: flex;
+            flex-direction: column;
+            padding-left: .5rem;
+            margin-left: 2.6rem;
+        }
+        .fold-btn {
+            position: absolute;
+            top: 50%;
+            left: -2.5rem;
+            width: 1.5rem;
+            height: 1.5rem;
+            margin-top: -.75rem;
+            line-height: .7rem;
+            font-size: 2rem;
+            text-align: center;
+            color: var(--theme);
+            border-radius: 50%;
+            border: 2px solid var(--theme);
+
+            cursor: pointer;
+            user-select: none;
+        }
+        .col::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: -1.05rem;
+            width: .7rem;
+            border-bottom: var(--line);
+        }
+        .folding .block,
+        .folding::after {
+            display: none;
+        }
+        /* SYMBOL */
+        /* .folding > .fold-btn {
+            line-height: 1rem;
+            font-size: 1.2rem;
+        } */
+        /* NUMBER */
+        .folding > .fold-btn {
+            line-height: 1.2rem;
+            font-size: 1rem;
+        }
+        .block {
+            position: relative;
+            display: flex;
+            padding-right: 2.5rem;
+            align-items: center;
+        }
+        .block + .block {
+            padding-top: 10px;
+        }
+        .block::before {
+            content: "";
+            position: absolute;
+            left: -.875rem;
+            top: 0;
+            bottom: 0;
+            border-left: var(--line);
+        }
+        .block:first-of-type::before {
+            top: 50%;
+        }
+        .block:last-of-type::before {
+            bottom: 50%;
+        }
+        .block .block::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: -.875rem;
+            width: .75rem;
+            border-bottom: var(--line);
+        }
+
+        .del,
+        .sub {
+            position: absolute;
+            bottom: 50%;
+            right: .1rem;
+            /* left: 10.6rem; */
+            z-index: 2;
+            width: 2.2rem;
+            height: 2.2rem;
+            margin-bottom: -1.1rem;
+            line-height: 1.9rem;
+            font-size: 1.2rem;
+            display: flex;
+            justify-content: center;
+            text-align: center;
+            font-family: sans-serif;
+            cursor: pointer;
+            opacity: 0;
+            user-select: none;
+            border-radius: 0 2px 2px 0;
+            transition: opacity .3s ease-in-out;
+        }
+        .sub {
+            right: -2.4rem;
+            font-size: 1.5rem;
+            line-height: 2rem;
+            font-family: "Microsoft Yahei";
+            border-radius: 4px;
+        }
+        .focusing ~ .del,
+        .inputWrapper:hover > .del,
+        .inputWrapper:hover > .sub {
+            opacity: 1;
+        }
+        .del:hover,
+        .focusing ~ .del {
+            color: #fff;
+            background: var(--warning);
+        }
+        .sub:hover {
+            background: var(--theme);
+            color: #fff;
+        }
+        .col .block + .block > .del,
+        .col .block + .block > .sub {
+            margin-bottom: -1.45rem
+        }
+        .inputWrapper.hasChild .sub {
+            display: none;
+        }
+
+        .more-holder {
+            width: 2rem;
+            height: 2rem;
+            margin-bottom: -.125em;
+            border: var(--line);
+            line-height: 1.6rem;
+            font-size: 1.75rem;
+            border-radius: 4px;
+            text-align: center;
+
+            cursor: pointer;
+            user-select: none;
+            opacity: .1;
+        }
+        .more-holder:hover {
+            opacity: 1;
+            color: #fff;
+            border-color: var(--theme);
+            background: var(--theme);
+        }
+        .inputWrapper {
+            display: inline-block;
+            position: relative;
+            align-self: center;
+            white-space: nowrap;
+        }
+        .content-box,
+        .input-holder {
+            min-height: 2.4rem;
+            font-size: 1rem;
+            font-family: Arial;
+            min-width: 6rem;
+            padding: .5rem;
+            padding-right: 1rem;
+            overflow: visible;
+        }
+        .content-box {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1;
+
+            /* border: 2px solid rgba(200, 200, 200, .5); */
+            border: 2px solid transparent;
+            border-bottom-color: var(--theme);
+            cursor: pointer;
+            resize: none;
+        }
+        .input-holder {
+            display: block;
+            position: relative;
+            padding: .6rem .5rem;
+            z-index: -1;
+            opacity: 0;
+            cursor: pointer;
+            pointer-events: none;
+            visibility: hidden;
+            padding-right: 3rem;
+        }
+        .block:hover > .inputWrapper .content-box,
+        .focusing,
+        .content-box:focus,
+        .content-box:focus-visible {
+            border-color: var(--theme);
+            outline-color: var(--theme);
+            border-radius: 4px;
+        }
+
+        .confirmLayer {
+            position: absolute;
+            top: 0;
+            right: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 3;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0,0,0,.4);
+
+            opacity: 0;
+            pointer-events: none;
+        }
+        .viewLayer {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .confirmContent {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+
+            width: 240px;
+            height: 120px;
+            padding: 10px;
+            background: #fff;
+            border-radius: 16px;
+        }
+        .confirmTitle,
+        .confirmBtns {
+            display: flex;
+            flex: 1;
+            align-items: center;
+        }
+        .confirmTitle {
+            padding: 0 30px;
+            line-height: 1.4;
+            text-align: center;
+        }
+        .confirmBtns {
+            width: 100%;
+            justify-content: space-around;
+            align-items: center;
+            text-align: center;
+        }
+        .confirmBtn {
+            flex: 1;
+            display: block;
+            max-width: 45%;
+            font-size: 14px;
+            line-height: 2.4em;
+            color: #fff;
+            background: var(--warning);
+            border-radius: 12px;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        .confirmBtn.confirm {
+            background: var(--theme);
+        }
+
+        .side-btn {
+            position: fixed;
+            top: .5em;
+            right: .5em;
+            z-index: 3;
+            width: 4em;
+            height: 2em;
+            font-size: 16px;
+            line-height: 2em;
+            text-align: center;
+            color: #fff;
+            background: var(--theme);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .fontControl {
+            color: var(--theme);
+            outline: 2px solid var(--theme);
+            border: none;
+            background: transparent;
+        }
+        .copy-btn {
+            top: 3em;
+        }
+    </style>
+</head>
+<body>
+    <div id="page">
+        <div class="block">
+            <div class="inputWrapper hasChild">
+                <textarea class="content-box" type="text" id="1" placeholder="input">Main</textarea>
+                <span class="input-holder">Main</span>
+                <span class="sub">+</span>
+            </div>
+
+            <div class="col">
+                <span class="fold-btn">-</span>
+
+                <div class="block">
+                    <div class="inputWrapper">
+                        <textarea class="content-box" type="text" id="1-1" placeholder="input">sub1</textarea>
+                        <span class="input-holder">sub1</span>
+                        <span class="del">-</span>
+                        <span class="sub">+</span>
+                    </div>
+                </div>
+
+                <div class="block more">
+                    <div class="more-holder">+</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="confirmLayer">
+        <div class="confirmContent">
+            <div class="confirmTitle">是否{__}？</div>
+            <div class="confirmBtns">
+                <div class="confirmBtn confirm">确定</div>
+                <div class="confirmBtn cancel">取消</div>
+            </div>
+        </div>
+    </div>
+    
+    <input type="number" value="16" min="14" max="80" class="side-btn fontControl" />
+    <div class="side-btn copy-btn">复制</div>
+
+    <div id="message" class="message"></div>
+
+    <script>
+        const OPERATES = {
+            del: '该节点包含子节点，是否继续删除？'
+        };
+
+        $(() => {
+            let _confirm = () => {}
+            const $confirmLayer = $('.confirmLayer');
+            function _cancel() {
+                $confirmLayer.removeClass('viewLayer');
+                $('.focusing').removeClass('focusing');
+            }
+            function checkOperate(operate, cb) {
+                $confirmLayer.find('.confirmTitle').text(OPERATES[operate]);
+
+                _confirm = () => {
+                    cb();
+                    _cancel();
+                };
+
+                $confirmLayer.addClass('viewLayer');
+            }
+            function get_random_id() {
+                return "";
+                // return Math.floor(Math.random() * 1e8);
+            }
+
+            // 使用execCommand的通用复制函数
+            function copyWithLegacy(text) {
+                // 创建临时textarea元素
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.left = '-9999px';
+                document.body.appendChild(textarea);
+
+                // 选中文本
+                textarea.select();
+                
+                try {
+                    // 执行复制命令
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        console.log('表格已复制（兼容模式）', 'success');
+                    } else {
+                        console.log('复制失败，请手动复制', 'error');
+                    }
+                } catch (err) {
+                    console.log('复制时出错: ' + err, 'error');
+                } finally {
+                    // 清理临时元素
+                    document.body.removeChild(textarea);
+                }
+            }
+    
+            // 展开/收起
+            $('#page').on('click', '.fold-btn', function(e) {
+                const $parent = $(this).parent();
+                if($parent.hasClass('folding')) {
+                    $parent.removeClass('folding')
+                    $(this).text('-')
+                } else {
+                    $parent.addClass('folding')
+                    const len = $(this).siblings().length - 1;
+                    $(this).text(len)
+                }
+            });
+
+            // 添加同级节点
+            $('#page').on('click', '.more-holder', function(e) {
+                const $parent = $(this).parent();
+                const count = $parent.siblings().length;
+                let _id = $parent.prev().find('textarea').attr('id');
+
+                const random_id = get_random_id();
+
+                const $newSub = $(`<div class="block">
+                    <div class="inputWrapper">
+                        <textarea class="content-box" type="text" id="${_id.replace(/\d$/, count)}" placeholder="input">${random_id}</textarea>
+                        <span class="input-holder">${random_id}</span>
+                        <span class="del">-</span>
+                        <span class="sub">+</span>
+                    </div>
+                </div>`);
+
+                $newSub.insertBefore($parent);
+                $newSub.find('textarea').focus();
+            });
+
+            // 添加子节点
+            $('#page').on('click', '.sub', function(e) {
+                const $this = $(this);
+                const $wrapper = $this.parent('.inputWrapper');
+                const _id = $this.siblings('.content-box').attr('id');
+
+                const random_id = get_random_id();
+
+                const $newChild = $(`<div class="col">
+                    <span class="fold-btn">-</span>
+
+                    <div class="block">
+                        <div class="inputWrapper">
+                            <textarea class="content-box" type="text" id="${_id}-1" placeholder="input">${random_id}</textarea>
+                            <span class="input-holder">${random_id}</span>
+                            <span class="del">-</span>
+                            <span class="sub">+</span>
+                        </div>
+                    </div>
+
+                    <div class="block more">
+                        <div class="more-holder">+</div>
+                    </div>
+                </div>`);
+
+                $wrapper.addClass('hasChild');
+                $newChild.insertAfter($wrapper);
+                $newChild.find('.content-box').focus();
+            });
+
+            // 删除节点
+            $('#page').on('click', '.del', function(e) {
+                const $this = $(this);
+                $this.siblings('.content-box').addClass('focusing')
+                const $parent = $(this).parent();
+                const $block = $parent.parent();
+                const count = $block.siblings().length;
+
+                if($parent.hasClass('hasChild')) {
+                    checkOperate('del', () => {
+                        // $parent.remove()
+                        if(count <= 2) {
+                            // 同级只有这一项时删除这一层级
+                            $block.parent().siblings('.hasChild').removeClass('hasChild').end().remove();
+                        } else {
+                            $block.remove();
+                        }
+                    });
+                } else {
+                    if(count <= 2) {
+                        // 同级只有这一项时删除这一层级
+                        $block.parent().siblings('.hasChild').removeClass('hasChild').end().remove();
+                    } else {
+                        $block.remove();
+                    }
+                }
+            });
+
+            // 输入内容
+            $('#page').on('input', '.content-box', function(e) {
+                const $this = $(this);
+                const $holder = $this.siblings('.input-holder');
+                const val = $this.val().replace(/\n/gi, '<br />') + "<br />";
+                $holder.html(val);
+            });
+
+            // 确认操作
+            $('.confirmLayer').on('click', '.confirmBtn', function(e) {
+                const $this = $(this);
+                console.log('??');
+
+                if($this.hasClass('confirm')) {
+                    _confirm();
+                } else {
+                    console.log('cancel');
+                    _cancel();
+                }
+            });
+
+            let last_len = 0;
+            // 复制内容
+            $('.copy-btn').on('click', function(e) {
+                let compiled = "";
+                const $contentBoxs = $('.content-box');
+                console.log($contentBoxs)
+                $contentBoxs.each((index, item) => {
+                    const _id = $(item).attr('id');
+                    const len = _id.split('-').length;
+                    const num = _id.match(/\d*$/);
+                    // const val = '"'+$(item).val().replace(/\n/gi, '\\n')+'"';
+                    const val = $(item).val().replace(/\n/gi, '\\n');
+
+                    console.log('last_len:', last_len)
+                    console.log('len:', len)
+                    console.log('val:', val)
+
+                    // val = val.replace(/\n/gi, '\\\\n');
+
+                    if(index == 0) {
+                        compiled += `${val}`
+                    } else {
+                        if(len <= last_len) {
+                            if(index != 1) {
+                                compiled += `\n`;
+                                console.log('\n')
+                            }
+
+                            // // 替换双引号为两个双引号
+                            // compiled = compiled.replace(/"/g, '""');
+                            // // 如果包含换行符、制表符或双引号，用双引号包裹
+                            // if (compiled.includes('\n') || compiled.includes('\t') || compiled.includes('"')) {
+                            //     compiled = `"${compiled}"`;
+                            // }
+
+                            for(let i=0;i<len - 1;i++) {
+                                compiled += `\t`
+                            }
+                            compiled += `${val}`;
+                        } else {
+                            compiled += `\t${val}`
+                        }
+                    }
+
+                    last_len = len;
+
+                    console.log('')
+                });
+
+                // 使用现代Clipboard API
+                navigator.clipboard.writeText(compiled).then(() => {
+                    console.log('表格已复制为TSV格式，请粘贴到Excel中', 'success');
+                }).catch(err => {
+                    // 降级到兼容方法
+                    copyWithLegacy(compiled);
+                });
+            });
+
+            // 修改文本尺寸
+            $('.fontControl').on('change', function(e) {
+                let fontSize = $(this).val();
+                if(fontSize < 14) {
+                    fontSize = 14
+                    $('.fontControl').val(fontSize)
+                } else if(fontSize > 80) {
+                    fontSize = 80
+                    $('.fontControl').val(fontSize)
+                }
+
+                $('html').css('font-size', fontSize + 'px')
+            });
+
+            $(document).keydown(function(event) {
+                const keyCode = event.keyCode || event.which;
+
+                if(keyCode == 27) {
+                    _cancel();
+                }
+            })
+        });
+    </script>
+</body>
+</html>
