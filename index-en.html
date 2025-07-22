@@ -301,6 +301,9 @@
         .copy-btn {
             top: 3em;
         }
+        .dom-btn {
+            top: 6em;
+        }
     </style>
 </head>
 <body>
@@ -343,6 +346,7 @@
     
     <input type="number" value="16" min="14" max="80" class="side-btn fontControl" />
     <div class="side-btn copy-btn">Copy</div>
+    <div class="side-btn dom-btn">DOM</div>
 
     <div id="message" class="message"></div>
 
@@ -509,6 +513,23 @@
 
             let last_len = 0;
             // copy
+            $('.dom-btn').on('click', function(e) {
+                const $dom_need_copy = $('#page').clone();
+                $dom_need_copy.find('.content-box').each((i, box) => {
+                    console.log(box);
+                    const $box = $(box);
+                    const text = $box.siblings('.input-holder').text();
+                    $box.html(text);
+                });
+                const text_need_copy = $dom_need_copy.html();
+
+                navigator.clipboard.writeText(text_need_copy).then(() => {
+                    console.log('copy', 'success');
+                }).catch(err => {
+                    copyWithLegacy(text_need_copy);
+                });
+                console.log(text_need_copy)
+            });
             $('.copy-btn').on('click', function(e) {
                 let compiled = "";
                 const $contentBoxs = $('.content-box');
