@@ -15,6 +15,7 @@
             font-size: 16px;
             --theme: #02b711;
             --warning: #ff3535;
+            --ignore: #ccc;
             --line: 2px solid #999;
         }
         #page {
@@ -95,11 +96,14 @@
             border-bottom: var(--line);
         }
 
+        .gray-block > .inputWrapper {
+            opacity: .3;
+        }
+
         .del,
-        .sub {
+        .sub,
+        .tag-flag {
             position: absolute;
-            bottom: 50%;
-            right: .1rem;
             z-index: 2;
             width: 2.2rem;
             height: 2.2rem;
@@ -116,16 +120,76 @@
             border-radius: 0 2px 2px 0;
             transition: opacity .3s ease-in-out;
         }
+        .del {
+            bottom: 50%;
+            right: .1rem;
+        }
         .sub {
+            bottom: 50%;
             right: -2.4rem;
             font-size: 1.5rem;
             line-height: 2rem;
             font-family: "Microsoft Yahei";
             border-radius: 4px;
         }
+        .tag-flag {
+            z-index: 3;
+            bottom: 0;
+            left: 0;
+            /* top: 0;
+            right: 0; */
+            width: 1.5rem;
+            height: .75rem;
+            font-size: .5rem;
+            line-height: .75rem;
+            color: #fff;
+            margin-bottom: 0;
+            border-radius: 0 .6rem 0 4px;
+            background: var(--theme);
+            overflow: hidden;
+        }
+        .tag-flag::before,
+        .tag-flag::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transition: transform .2s ease-in-out;
+        }
+        .tag-flag::before {
+            content: "flag";
+            background: var(--warning);
+            transform: translate(90%, 0);
+        }
+        .tag-flag::after {
+            content: "skip";
+            background: var(--ignore);
+            transform: translate(95%, 0);
+        }
+        .tag-flag.flag::before,
+        .tag-flag.skip::before {
+            transform: translate(5%, 0);
+        }
+        .tag-flag.skip::after {
+            transform: translate(10%, 0);
+        }
+
+        .tag-flag.flag + .content-box {
+            --theme: var(--warning);
+            color: var(--warning);
+        }
+        .tag-flag.skip + .content-box {
+            --theme: var(--ignore);
+            color: var(--ignore);
+        }
+
         .focusing ~ .del,
         .inputWrapper:hover > .del,
-        .inputWrapper:hover > .sub {
+        .inputWrapper:hover > .sub,
+        .inputWrapper:hover > .tag-flag {
             opacity: 1;
         }
         .del:hover,
@@ -301,15 +365,29 @@
         .copy-btn {
             top: 3em;
         }
-        .dom-btn {
-            top: 6em;
+        .new-btn {
+            top: 5.5em;
+        }
+        .undo-btn {
+            right: 6em;
+            top: .5em;
+        }
+        .redo-btn {
+            right: 6em;
+            top: 3em;
+        }
+        .disabled {
+            background: var(--ignore);
+            cursor: default;
         }
     </style>
 </head>
 <body>
     <div id="page">
-        <div class="block">
+        <div class="block" draggable="true">
             <div class="inputWrapper hasChild">
+                <span class="tag-flag"></span>
+
                 <textarea class="content-box" type="text" id="1" placeholder="input">Main</textarea>
                 <span class="input-holder">Main</span>
                 <span class="sub">+</span>
@@ -318,8 +396,10 @@
             <div class="col">
                 <span class="fold-btn">-</span>
 
-                <div class="block">
+                <div class="block" draggable="true">
                     <div class="inputWrapper">
+                        <span class="tag-flag"></span>
+
                         <textarea class="content-box" type="text" id="1-1" placeholder="input">sub1</textarea>
                         <span class="input-holder">sub1</span>
                         <span class="del">-</span>
@@ -346,7 +426,10 @@
     
     <input type="number" value="16" min="14" max="80" class="side-btn fontControl" />
     <div class="side-btn copy-btn">Copy</div>
-    <div class="side-btn dom-btn">DOM</div>
+    <div class="side-btn new-btn">New</div>
+
+    <div class="side-btn undo-btn">Undo</div>
+    <div class="side-btn redo-btn disabled">Redo</div>
 
     <div id="message" class="message"></div>
 
@@ -356,8 +439,60 @@
         };
 
         $(() => {
-            let _confirm = () => {}
+            let _confirm = () => {};
+            const $page = $('#page');
             const $confirmLayer = $('.confirmLayer');
+            let current_step = 0;
+            let saving_step = 0;
+            let steps = JSON.parse(localStorage.getItem("steps") || "[]");;
+            function _get_dom() {
+                const $dom_need_copy = $page.clone();
+                $dom_need_copy.find('.content-box').each((i, box) => {
+                    const $box = $(box);
+                    const text = $box.siblings('.input-holder').text();
+                    $box.html(text);
+                });
+
+                console.log(typeof $dom_need_copy.html());
+                return $dom_need_copy.html();
+            }
+            function _save_step(debouncing) {
+                clearTimeout(saving_step);
+                const new_step = _get_dom();
+
+                saving_step = setTimeout(() => {
+                    steps.splice(0, current_step);
+                    steps.unshift(new_step);
+                    localStorage.setItem("steps", JSON.stringify(steps.slice(0, 10)));
+
+                    current_step = 0;
+                    $(".redo-btn").addClass("disabled");
+                }, debouncing ? 1000 : 0);
+            }
+            function _load_steps(step = 0) {
+                if(steps.length) {
+                    switch(step) {
+                        case -1:
+                            console.log("" + current_step);
+                            current_step--;
+                            if(current_step <= 0) {
+                                current_step = 0;
+                                $(".redo-btn").addClass("disabled");
+                            }
+                            break;
+                        case 1:
+                            if(current_step >= steps.length) {
+                                return;
+                            }
+                            current_step++;
+                            $(".redo-btn").removeClass("disabled");
+                            break;
+                        default:
+                    }
+
+                    $page.html(steps[current_step])
+                }
+            }
             function _cancel() {
                 $confirmLayer.removeClass('viewLayer');
                 $('.focusing').removeClass('focusing');
@@ -381,14 +516,22 @@
                     $parent.find('.content-box').focus();
                 }, 100);
             }
+            function nodeUpwards($node) {
+                $node.copy
+            }
+            function nodeDownwards($node) {
+            }
+
             function newSiblings($moreBlock) {
                 const count = $moreBlock.siblings().length;
                 let _id = $moreBlock.prev().find('textarea').attr('id');
 
                 const random_id = get_random_id();
 
-                const $newSub = $(`<div class="block">
+                const $newSub = $(`<div class="block" draggable="true">
                     <div class="inputWrapper">
+                        <span class="tag-flag"></span>
+
                         <textarea class="content-box" type="text" id="${_id.replace(/\d$/, count)}" placeholder="input">${random_id}</textarea>
                         <span class="input-holder">${random_id}</span>
                         <span class="del">-</span>
@@ -397,6 +540,7 @@
                 </div>`);
 
                 $newSub.insertBefore($moreBlock);
+                _save_step();
                 focusOn($newSub)
             }
             function newChildren($this) {
@@ -408,8 +552,10 @@
                 const $newChild = $(`<div class="col">
                     <span class="fold-btn">-</span>
 
-                    <div class="block">
+                    <div class="block" draggable="true">
                         <div class="inputWrapper">
+                            <span class="tag-flag"></span>
+
                             <textarea class="content-box" type="text" id="${_id}-1" placeholder="input">${random_id}</textarea>
                             <span class="input-holder">${random_id}</span>
                             <span class="del">-</span>
@@ -424,6 +570,7 @@
 
                 $wrapper.addClass('hasChild');
                 $newChild.insertAfter($wrapper);
+                _save_step();
                 focusOn($newChild)
             }
 
@@ -452,7 +599,7 @@
             }
     
             // expand/collapse
-            $('#page').on('click', '.fold-btn', function(e) {
+            $page.on('click', '.fold-btn', function(e) {
                 const $parent = $(this).parent();
                 if($parent.hasClass('folding')) {
                     $parent.removeClass('folding')
@@ -465,17 +612,17 @@
             });
 
             // add siblings node
-            $('#page').on('click', '.more-holder', function(e) {
+            $page.on('click', '.more-holder', function(e) {
                 newSiblings($(this).parent());
             });
 
             // add child node
-            $('#page').on('click', '.sub', function(e) {
+            $page.on('click', '.sub', function(e) {
                 newChildren($(this))
             });
 
             // delete node
-            $('#page').on('click', '.del', function(e) {
+            $page.on('click', '.del', function(e) {
                 const $this = $(this);
                 $this.siblings('.content-box').addClass('focusing')
                 const $parent = $(this).parent();
@@ -489,6 +636,8 @@
                         } else {
                             $block.remove();
                         }
+
+                        _save_step();
                     });
                 } else {
                     if(count <= 2) {
@@ -496,15 +645,19 @@
                     } else {
                         $block.remove();
                     }
+
+                    _save_step();
                 }
             });
 
             // input
-            $('#page').on('input', '.content-box', function(e) {
+            $page.on('input', '.content-box', function(e) {
                 const $this = $(this);
                 const $holder = $this.siblings('.input-holder');
                 const val = $this.val().replace(/\n/gi, '<br />') + "<br />";
                 $holder.html(val);
+
+                _save_step(true);
             });
 
             // confirm
@@ -522,23 +675,49 @@
 
             let last_len = 0;
             // copy
-            $('.dom-btn').on('click', function(e) {
-                const $dom_need_copy = $('#page').clone();
-                $dom_need_copy.find('.content-box').each((i, box) => {
-                    console.log(box);
-                    const $box = $(box);
-                    const text = $box.siblings('.input-holder').text();
-                    $box.html(text);
-                });
-                const text_need_copy = $dom_need_copy.html();
+            $('.new-btn').on('click', function(e) {
+                const $base = $(`
+                    <div class="block" draggable="true">
+                        <div class="inputWrapper">
+                            <span class="tag-flag"></span>
 
-                navigator.clipboard.writeText(text_need_copy).then(() => {
-                    console.log('copy', 'success');
-                }).catch(err => {
-                    copyWithLegacy(text_need_copy);
-                });
-                console.log(text_need_copy)
+                            <textarea class="content-box" type="text" id="1" placeholder="input">Main</textarea>
+                            <span class="input-holder">Main</span>
+                            <span class="sub">+</span>
+                        </div>
+
+                        <div class="col">
+                            <span class="fold-btn">-</span>
+
+                            <div class="block" draggable="true">
+                                <div class="inputWrapper">
+                                    <span class="tag-flag"></span>
+
+                                    <textarea class="content-box" type="text" id="1-1" placeholder="input">sub1</textarea>
+                                    <span class="input-holder">sub1</span>
+                                    <span class="del">-</span>
+                                    <span class="sub">+</span>
+                                </div>
+                            </div>
+
+                            <div class="block more">
+                                <div class="more-holder">+</div>
+                            </div>
+                        </div>
+                    </div>`);
+
+                $page.html($base);
+                _save_step()
+            })
+
+            $('.undo-btn').on('click', function(e) {
+                _load_steps(1);
             });
+
+            $('.redo-btn').on('click', function(e) {
+                _load_steps(-1);
+            });
+
             $('.copy-btn').on('click', function(e) {
                 let compiled = "";
                 const $contentBoxs = $('.content-box');
@@ -548,11 +727,6 @@
                     const len = _id.split('-').length;
                     const num = _id.match(/\d*$/);
                     const val = $(item).val().replace(/\n/gi, '\\n');
-
-                    console.log('last_len:', last_len)
-                    console.log('len:', len)
-                    console.log('val:', val)
-
 
                     if(index == 0) {
                         compiled += `${val}`
@@ -573,8 +747,6 @@
                     }
 
                     last_len = len;
-
-                    console.log('')
                 });
 
                 navigator.clipboard.writeText(compiled).then(() => {
@@ -599,43 +771,114 @@
             });
 
             // input
-            $('#page').on('keydown', '.content-box', function(e) {
+            $page.on('keydown', '.content-box', function(e) {
+                e.stopPropagation();
                 const keyCode = e.keyCode || e.which;
+                const $this = $(this);
                 if(e.shiftKey) {
+                    return
+                }
+                if(e.ctrlKey) {
+                    switch(keyCode) {
+                        case 37: // 左
+                            break;
+                        case 38: // 上
+                            nodeUpwards($this)
+                        case 39: // 右
+                            break;
+                        case 40: // 下
+                            nodeDownwards($this)
+                            break;
+                        default:;
+                    }
                     return
                 }
 
                 switch(keyCode) {
                     case 9: // Tab
                         e.preventDefault();
-                        const $childs = $(this).parent().siblings(".col");
+                        const $childs = $this.parent().siblings(".col");
                         if($childs.length) {
                             newSiblings($childs.children('.more'))
                         } else {
-                            newChildren($(this).siblings(".sub"));
+                            newChildren($this.siblings(".sub"));
                         }
                         break;
                     case 13: // Enter
                         e.preventDefault();
-                        newSiblings($(this).closest(".block").siblings(".more"));
+                        newSiblings($this.closest(".block").siblings(".more"));
                         break;
-                    case 37: // 左
-                    case 38: // 上
-                    case 39: // 右
-                    case 40: // 下
+                    // case 37: // 左
+                    // case 38: // 上
+                    // case 39: // 右
+                    // case 40: // 下
                         break;
                     default:;
                 }
+            });
+            $("#page > .block").on("dragstart", ".block", function(e) {
+                e.stopPropagation();
+                $(this).addClass("gray-block")
+            });
+            $("#page > .block").on("dragend", ".block", function(e) {
+                e.stopPropagation();
+                $(this).removeClass("gray-block")
+            });
+            $("#page > .block").on("dragenter", ".block", function(e) {
+                e.stopPropagation();
+                console.log('dragenter');
+                console.log(e);
+            });
+            $("#page > .block").on("dragleave", ".block", function(e) {
+                e.stopPropagation();
+                console.log('dragleave');
+                console.log(e);
+            });
+            $page.on("click", ".tag-flag", function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const $this =  $(this);
+                if($this.hasClass('skip')) {
+                    $this.removeClass('skip');
+                } else if($this.hasClass('flag')) {
+                    $this.removeClass('flag');
+                    $this.addClass('skip');
+                } else {
+                    $this.removeClass('skip');
+                    $this.addClass('flag');
+                }
+
+                _save_step();
             });
 
             $(document).keydown(function(e) {
                 const keyCode = e.keyCode || e.which;
 
-                if(keyCode == 27) {
-                    _cancel();
+                switch(keyCode) {
+                    case 27:
+                        _cancel();
+                        break;
+                    case 89:
+                        if(e.ctrlKey) {
+                            e.preventDefault();
+                            console.log('step redo')
+                            _load_steps(-1);
+                        }
+                        break;
+                    case 90:
+                        if(e.ctrlKey) {
+                            e.preventDefault();
+                            console.log('step undo')
+                            _load_steps(1);
+                        }
+                        break;
+                    default:;
                 }
+
+                console.log(keyCode);
             });
 
+            _load_steps();
         });
     </script>
 </body>
