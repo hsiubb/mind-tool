@@ -214,7 +214,7 @@
         }
 
         .confirmLayer {
-            position: absolute;
+            position: fixed;
             top: 0;
             right: 0;
             left: 0;
@@ -376,6 +376,56 @@
                 return "";
                 // return Math.floor(Math.random() * 1e8);
             }
+            function focusOn($parent) {
+                setTimeout(() => {
+                    $parent.find('.content-box').focus();
+                }, 100);
+            }
+            function newSiblings($moreBlock) {
+                const count = $moreBlock.siblings().length;
+                let _id = $moreBlock.prev().find('textarea').attr('id');
+
+                const random_id = get_random_id();
+
+                const $newSub = $(`<div class="block">
+                    <div class="inputWrapper">
+                        <textarea class="content-box" type="text" id="${_id.replace(/\d$/, count)}" placeholder="input">${random_id}</textarea>
+                        <span class="input-holder">${random_id}</span>
+                        <span class="del">-</span>
+                        <span class="sub">+</span>
+                    </div>
+                </div>`);
+
+                $newSub.insertBefore($moreBlock);
+                focusOn($newSub)
+            }
+            function newChildren($this) {
+                const $wrapper = $this.parent('.inputWrapper');
+                const _id = $this.siblings('.content-box').attr('id');
+
+                const random_id = get_random_id();
+
+                const $newChild = $(`<div class="col">
+                    <span class="fold-btn">-</span>
+
+                    <div class="block">
+                        <div class="inputWrapper">
+                            <textarea class="content-box" type="text" id="${_id}-1" placeholder="input">${random_id}</textarea>
+                            <span class="input-holder">${random_id}</span>
+                            <span class="del">-</span>
+                            <span class="sub">+</span>
+                        </div>
+                    </div>
+
+                    <div class="block more">
+                        <div class="more-holder">+</div>
+                    </div>
+                </div>`);
+
+                $wrapper.addClass('hasChild');
+                $newChild.insertAfter($wrapper);
+                focusOn($newChild)
+            }
 
             // use execCommand
             function copyWithLegacy(text) {
@@ -416,53 +466,12 @@
 
             // add siblings node
             $('#page').on('click', '.more-holder', function(e) {
-                const $parent = $(this).parent();
-                const count = $parent.siblings().length;
-                let _id = $parent.prev().find('textarea').attr('id');
-
-                const random_id = get_random_id();
-
-                const $newSub = $(`<div class="block">
-                    <div class="inputWrapper">
-                        <textarea class="content-box" type="text" id="${_id.replace(/\d$/, count)}" placeholder="input">${random_id}</textarea>
-                        <span class="input-holder">${random_id}</span>
-                        <span class="del">-</span>
-                        <span class="sub">+</span>
-                    </div>
-                </div>`);
-
-                $newSub.insertBefore($parent);
-                $newSub.find('textarea').focus();
+                newSiblings($(this).parent());
             });
 
             // add child node
             $('#page').on('click', '.sub', function(e) {
-                const $this = $(this);
-                const $wrapper = $this.parent('.inputWrapper');
-                const _id = $this.siblings('.content-box').attr('id');
-
-                const random_id = get_random_id();
-
-                const $newChild = $(`<div class="col">
-                    <span class="fold-btn">-</span>
-
-                    <div class="block">
-                        <div class="inputWrapper">
-                            <textarea class="content-box" type="text" id="${_id}-1" placeholder="input">${random_id}</textarea>
-                            <span class="input-holder">${random_id}</span>
-                            <span class="del">-</span>
-                            <span class="sub">+</span>
-                        </div>
-                    </div>
-
-                    <div class="block more">
-                        <div class="more-holder">+</div>
-                    </div>
-                </div>`);
-
-                $wrapper.addClass('hasChild');
-                $newChild.insertAfter($wrapper);
-                $newChild.find('.content-box').focus();
+                newChildren($(this))
             });
 
             // delete node
@@ -589,13 +598,44 @@
                 $('html').css('font-size', fontSize + 'px')
             });
 
-            $(document).keydown(function(event) {
-                const keyCode = event.keyCode || event.which;
+            // input
+            $('#page').on('keydown', '.content-box', function(e) {
+                const keyCode = e.keyCode || e.which;
+                if(e.shiftKey) {
+                    return
+                }
+
+                switch(keyCode) {
+                    case 9: // Tab
+                        e.preventDefault();
+                        const $childs = $(this).parent().siblings(".col");
+                        if($childs.length) {
+                            newSiblings($childs.children('.more'))
+                        } else {
+                            newChildren($(this).siblings(".sub"));
+                        }
+                        break;
+                    case 13: // Enter
+                        e.preventDefault();
+                        newSiblings($(this).closest(".block").siblings(".more"));
+                        break;
+                    case 37: // 左
+                    case 38: // 上
+                    case 39: // 右
+                    case 40: // 下
+                        break;
+                    default:;
+                }
+            });
+
+            $(document).keydown(function(e) {
+                const keyCode = e.keyCode || e.which;
 
                 if(keyCode == 27) {
                     _cancel();
                 }
-            })
+            });
+
         });
     </script>
 </body>
