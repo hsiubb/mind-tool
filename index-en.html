@@ -15,6 +15,7 @@
             font-size: 16px;
             --theme: #02b711;
             --warning: #ff3535;
+            --error: #f00;
             --ignore: #ccc;
             --line: 2px solid #999;
         }
@@ -161,7 +162,7 @@
         }
         .tag-flag::before {
             content: "flag";
-            background: var(--warning);
+            background: var(--error);
             transform: translate(90%, 0);
         }
         .tag-flag::after {
@@ -180,6 +181,8 @@
         .tag-flag.flag + .content-box {
             --theme: var(--warning);
             color: var(--warning);
+            --theme: var(--error);
+            color: var(--error);
         }
         .tag-flag.skip + .content-box {
             --theme: var(--ignore);
@@ -257,6 +260,12 @@
             cursor: pointer;
             resize: none;
         }
+        /* .content-box::placeholder,
+        .content-box:-moz-placeholder,
+        .content-box:-ms-input-placeholder,
+        .content-box::-webkit-input-placeholder {
+            color: red;
+        } */
         .input-holder {
             display: block;
             position: relative;
@@ -277,7 +286,7 @@
             border-radius: 4px;
         }
 
-        .confirmLayer {
+        .layer {
             position: fixed;
             top: 0;
             right: 0;
@@ -319,6 +328,14 @@
             line-height: 1.4;
             text-align: center;
         }
+        .confirmTitleInput {
+            max-width: 80%;
+            max-height: 2rem;
+            margin: .5rem 0;
+            border: none;
+            line-height: 1;
+            border-bottom: 2px solid var(--theme);
+        }
         .confirmBtns {
             width: 100%;
             justify-content: space-around;
@@ -341,10 +358,15 @@
             background: var(--theme);
         }
 
-        .side-btn {
+        .control-board {
             position: fixed;
             top: .5em;
             right: .5em;
+        }
+        .side-btn {
+            position: absolute;
+            top: 0;
+            right: 0;
             z-index: 3;
             width: 4em;
             height: 2em;
@@ -363,18 +385,24 @@
             background: transparent;
         }
         .copy-btn {
-            top: 3em;
+            top: 2.5em;
         }
-        .new-btn {
+        .clear-btn {
             top: 5.5em;
         }
+        .save-btn {
+            top: 8em;
+        }
+        .load-btn {
+            top: 10.5em;
+        }
         .undo-btn {
-            right: 6em;
-            top: .5em;
+            right: 5.5em;
+            top: 0;
         }
         .redo-btn {
-            right: 6em;
-            top: 3em;
+            right: 5.5em;
+            top: 2.5em;
         }
         .disabled {
             background: var(--ignore);
@@ -414,7 +442,7 @@
         </div>
     </div>
 
-    <div class="confirmLayer">
+    <div class="layer confirmLayer">
         <div class="confirmContent">
             <div class="confirmTitle"></div>
             <div class="confirmBtns">
@@ -423,13 +451,28 @@
             </div>
         </div>
     </div>
-    
-    <input type="number" value="16" min="14" max="80" class="side-btn fontControl" />
-    <div class="side-btn copy-btn">Copy</div>
-    <div class="side-btn new-btn">New</div>
 
-    <div class="side-btn undo-btn">Undo</div>
-    <div class="side-btn redo-btn disabled">Redo</div>
+    <div class="layer saveLayer">
+        <div class="confirmContent">
+            <input class="confirmTitle confirmTitleInput" placeholder="请输入标题" type="text" id="" />
+            <div class="confirmBtns">
+                <div class="confirmBtn confirm">Confirm</div>
+                <div class="confirmBtn cancel">Cancel</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="control-board">
+        <input type="number" value="16" min="14" max="80" class="side-btn fontControl" />
+        <div class="side-btn copy-btn">Copy</div>
+        <div class="side-btn clear-btn">Clear</div>
+
+        <!-- <div class="side-btn save-btn">Save</div>
+        <div class="side-btn load-btn">Load</div> -->
+
+        <div class="side-btn undo-btn">Undo</div>
+        <div class="side-btn redo-btn disabled">Redo</div>
+    </div>
 
     <div id="message" class="message"></div>
 
@@ -442,6 +485,7 @@
             let _confirm = () => {};
             const $page = $('#page');
             const $confirmLayer = $('.confirmLayer');
+            const $saveLayer = $('.saveLayer');
             let current_step = 0;
             let saving_step = 0;
             let steps = JSON.parse(localStorage.getItem("steps") || "[]");;
@@ -495,17 +539,35 @@
             }
             function _cancel() {
                 $confirmLayer.removeClass('viewLayer');
+                $saveLayer.removeClass('viewLayer');
                 $('.focusing').removeClass('focusing');
             }
             function checkOperate(operate, cb) {
-                $confirmLayer.find('.confirmTitle').text(OPERATES[operate]);
+                switch(operate) {
+                    case 'del':
+                        $confirmLayer.find('.confirmTitle').text(OPERATES[operate]);
 
-                _confirm = () => {
-                    cb();
-                    _cancel();
-                };
+                        _confirm = () => {
+                            cb();
+                            _cancel();
+                        };
 
-                $confirmLayer.addClass('viewLayer');
+                        $confirmLayer.addClass('viewLayer');
+                        break;
+                    case 'save':
+                        _confirm = () => {
+                            const currentRecord = $('.confirmTitleInput').val();
+                            if(currentRecord) {
+                                cb();
+                                _cancel();
+                            } else {
+                                return false;
+                            }
+                        };
+                        $saveLayer.addClass('viewLayer');
+                        break;
+                    default:;
+                }
             }
             function get_random_id() {
                 return "";
@@ -517,7 +579,7 @@
                 }, 100);
             }
             function nodeUpwards($node) {
-                $node.copy
+                // $node.copy
             }
             function nodeDownwards($node) {
             }
@@ -661,7 +723,7 @@
             });
 
             // confirm
-            $('.confirmLayer').on('click', '.confirmBtn', function(e) {
+            $('.confirmBtn').on('click', function(e) {
                 const $this = $(this);
                 console.log('??');
 
@@ -675,7 +737,7 @@
 
             let last_len = 0;
             // copy
-            $('.new-btn').on('click', function(e) {
+            $('.clear-btn').on('click', function(e) {
                 const $base = $(`
                     <div class="block" draggable="true">
                         <div class="inputWrapper">
@@ -713,6 +775,17 @@
             $('.undo-btn').on('click', function(e) {
                 _load_steps(1);
             });
+
+            $('.save-btn').on('click', function(e) {
+                checkOperate('save', () => {
+                    // if() {
+                    // }
+                    const current_html = _get_dom();
+                    localStorage
+                })
+            })
+            $('.load-btn').on('click', function(e) {
+            })
 
             $('.redo-btn').on('click', function(e) {
                 _load_steps(-1);
@@ -767,7 +840,8 @@
                     $('.fontControl').val(fontSize)
                 }
 
-                $('html').css('font-size', fontSize + 'px')
+                $('html').css('font-size', fontSize + 'px');
+                localStorage.setItem('fontSize', fontSize);
             });
 
             // input
@@ -878,7 +952,11 @@
                 console.log(keyCode);
             });
 
-            _load_steps();
+            (function init() {
+                // _load_steps();
+                const fontSize = localStorage.getItem('fontSize');
+                fontSize && $('.fontControl').val(fontSize).change()
+            }());
         });
     </script>
 </body>
