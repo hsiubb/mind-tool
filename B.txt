@@ -1,0 +1,80 @@
+B
+=--TRIM(RIGHT(SUBSTITUTE(LEFT(A1,FIND("*",A1)-1)," ",REPT(" ",100)),100))
+
+C
+=TRIM(RIGHT(SUBSTITUTE(LEFT(A1,FIND("*",A1)-1-LEN(B1)-1)," ",REPT(" ",100)),100))
+
+D
+=LET(
+    raw, A1,
+    type, C1,
+    starNum, B1,
+    starPos, FIND("*", raw, FIND("S2 SUN ", raw)+7),
+    afterStar, IF(starPos>0, MID(raw, starPos+1, FIND("$", raw)-starPos-1), ""),
+    hasF, ISNUMBER(FIND("F", afterStar)),
+    hasM, ISNUMBER(FIND("M", raw)),
+    hasGT, ISNUMBER(FIND(">", afterStar)),
+    hasSlash, ISNUMBER(FIND("/", afterStar)),
+    mapF, IF(hasF, VLOOKUP(starNum, {1,10;2,12;3,12;4,24;5,10;6,15;7,12;8,12}, 2, 0), 0),
+    countPlus, IF(hasF, 0, LEN(afterStar)-LEN(SUBSTITUTE(afterStar,"+",""))+1),
+    partBeforeGT, IF(hasGT, LEFT(afterStar, FIND(">", afterStar)-1), ""),
+    partAfterGT, IF(hasGT, MID(afterStar, FIND(">", afterStar)+1, LEN(afterStar)), ""),
+    countBeforeGT, IF(hasGT, LEN(partBeforeGT)-LEN(SUBSTITUTE(partBeforeGT,"+",""))+1, 0),
+    countAfterGT, IF(hasGT, LEN(partAfterGT)-LEN(SUBSTITUTE(partAfterGT,"+",""))+1, 0),
+    totalHorses, IF(hasF, mapF, countPlus),
+    result, SWITCH(type,
+        "WIN", IF(hasF, mapF, countPlus),
+        "PLA", IF(hasF, mapF, countPlus),
+        "QIN", IF(hasGT, countBeforeGT * countAfterGT, COMBIN(totalHorses, 2)),
+        "QPL", IF(hasGT, countBeforeGT * countAfterGT, COMBIN(totalHorses, 2)),
+        "FCT", IF(hasGT, countBeforeGT * countAfterGT, IF(hasM, PERMUT(totalHorses, 2), 1)),
+        "TRI", IF(hasGT, countBeforeGT * COMBIN(countAfterGT, 2), COMBIN(totalHorses, 3)),
+        "F-F", IF(hasGT, countBeforeGT * COMBIN(countAfterGT, 3), COMBIN(totalHorses, 4)),
+        "QTT", IF(hasGT, countBeforeGT * PERMUT(countAfterGT, 3), 1),
+        "DBL", IF(hasSlash,
+                 (LEN(LEFT(afterStar, FIND("/", afterStar)-1))-LEN(SUBSTITUTE(LEFT(afterStar, FIND("/", afterStar)-1),"+",""))+1) *
+                 (LEN(MID(afterStar, FIND("/", afterStar)+1, LEN(afterStar)))-LEN(SUBSTITUTE(MID(afterStar, FIND("/", afterStar)+1, LEN(afterStar)),"+",""))+1),
+                 1),
+        "TBL", IF(hasSlash,
+                 (LEN(LEFT(afterStar, FIND("/", afterStar)-1))-LEN(SUBSTITUTE(LEFT(afterStar, FIND("/", afterStar)-1),"+",""))+1) *
+                 (LEN(MID(afterStar, FIND("/", afterStar)+1, FIND("/", afterStar, FIND("/", afterStar)+1)-FIND("/", afterStar)-1))-LEN(SUBSTITUTE(MID(afterStar, FIND("/", afterStar)+1, FIND("/", afterStar, FIND("/", afterStar)+1)-FIND("/", afterStar)-1),"+",""))+1) *
+                 (LEN(MID(afterStar, FIND("/", afterStar, FIND("/", afterStar)+1)+1, LEN(afterStar)))-LEN(SUBSTITUTE(MID(afterStar, FIND("/", afterStar, FIND("/", afterStar)+1)+1, LEN(afterStar)),"+",""))+1),
+                 1),
+        "D-T", IF(hasSlash,
+                 COMBIN(LEN(LEFT(afterStar, FIND("/", afterStar)-1))-LEN(SUBSTITUTE(LEFT(afterStar, FIND("/", afterStar)-1),"+",""))+1, 3) *
+                 COMBIN(LEN(MID(afterStar, FIND("/", afterStar)+1, LEN(afterStar)))-LEN(SUBSTITUTE(MID(afterStar, FIND("/", afterStar)+1, LEN(afterStar)),"+",""))+1, 3),
+                 1),
+        "T-T", IF(hasSlash,
+                 COMBIN(LEN(LEFT(afterStar, FIND("/", afterStar)-1))-LEN(SUBSTITUTE(LEFT(afterStar, FIND("/", afterStar)-1),"+",""))+1, 3) *
+                 COMBIN(LEN(MID(afterStar, FIND("/", afterStar)+1, FIND("/", afterStar, FIND("/", afterStar)+1)-FIND("/", afterStar)-1))-LEN(SUBSTITUTE(MID(afterStar, FIND("/", afterStar)+1, FIND("/", afterStar, FIND("/", afterStar)+1)-FIND("/", afterStar)-1),"+",""))+1, 3) *
+                 COMBIN(LEN(MID(afterStar, FIND("/", afterStar, FIND("/", afterStar)+1)+1, LEN(afterStar)))-LEN(SUBSTITUTE(MID(afterStar, FIND("/", afterStar, FIND("/", afterStar)+1)+1, LEN(afterStar)),"+",""))+1, 3),
+                 1),
+        "未知"
+    ),
+    IF(ISERROR(result), "检查公式", result)
+)
+
+E
+=IF(ISNUMBER(FIND("F", A1, FIND("$", A1))),
+    VALUE(MID(A1, FIND("$", A1)+1, FIND("F", A1, FIND("$", A1))-FIND("$", A1)-1)) / D1,
+    VALUE(MID(A1, FIND("$", A1)+1, LEN(A1)))
+)
+
+F
+=D1*E1
+
+G
+=IF(ISNUMBER(FIND("F", A1, FIND("$", A1))), "FLEXI", "UNIT")
+
+
+
+
+
+
+
+        "TCE", IF(hasGT,
+                 "手动计算",   -- 因规则复杂，请根据实际情况补充（见下方说明）
+                 IF(hasM, PERMUT(totalHorses, 3), 1)),
+        "SUP", IF(hasSlash,
+                 "手动计算",   // 六部分组合数乘积，可参照下方说明自行扩展
+                 1),

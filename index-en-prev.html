@@ -388,24 +388,21 @@
         .copy-btn {
             top: 2.5em;
         }
-        .new-btn,
         .clear-btn {
             top: 5.5em;
         }
         .save-btn {
-            right: 5.5em;
-            /* top: 8em; */
+            top: 8em;
         }
         .load-btn {
-            right: 5.5em;
-            top: 2.5em;
+            top: 10.5em;
         }
         .undo-btn {
-            right: 10.5em;
+            right: 5.5em;
             top: 0;
         }
         .redo-btn {
-            right: 10.5em;
+            right: 5.5em;
             top: 2.5em;
         }
         .disabled {
@@ -469,11 +466,10 @@
     <div class="control-board">
         <input type="number" value="16" min="14" max="80" class="side-btn fontControl" />
         <div class="side-btn copy-btn">Copy</div>
-        <!-- <div class="side-btn clear-btn">Clear</div> -->
-        <div class="side-btn new-btn">New</div>
+        <div class="side-btn clear-btn">Clear</div>
 
-        <div class="side-btn save-btn">Save</div>
-        <div class="side-btn load-btn">Load</div>
+        <!-- <div class="side-btn save-btn">Save</div>
+        <div class="side-btn load-btn">Load</div> -->
 
         <div class="side-btn undo-btn">Undo</div>
         <div class="side-btn redo-btn disabled">Redo</div>
@@ -493,29 +489,7 @@
             const $saveLayer = $('.saveLayer');
             let current_step = 0;
             let saving_step = 0;
-            let steps = JSON.parse(localStorage.getItem("steps") || "[]");
-            let editing_field_name = "";
-
-            // indexDB
-            const db = window.indexedDB.open('liv');
-            let liv_connection;
-            db.onupgradeneeded = (e) => {
-                liv_connection = e.target.result;
-                liv_connection.createObjectStore('field', {
-                    keyPath: "name"
-                });
-            }
-            db.onsuccess = (e) => {
-                liv_connection = e.target.result;
-            }
-
-            // let liv_store;
-            // setTimeout(() => {
-            //     const liv_transaction = liv_connection.transaction("field", "readwrite");
-            //     const liv_store = liv_transaction.objectStore("field");
-            // }, 1e3);
-
-
+            let steps = JSON.parse(localStorage.getItem("steps") || "[]");;
             function _get_dom() {
                 const $dom_need_copy = $page.clone();
                 $dom_need_copy.find('.content-box').each((i, box) => {
@@ -804,36 +778,15 @@
             });
 
             $('.save-btn').on('click', function(e) {
-                const liv_transaction = liv_connection.transaction("field", "readwrite");
-                const liv_store = liv_transaction.objectStore("field");
-
-                const current_html = _get_dom();
-
-                if(editing_field_name) {
-                    const getReq = liv_store.get({
-                        name: editing_field_name,
-                        html: current_html
-                    });
-                    getReq.onsuccess = (e) => {
-                        e.target.result;
-                    }
-                } else {
-                    editing_field_name = window.prompt('请输入这个脑图的名称');
-                    if(!editing_field_name) {
-                        console.log('没有获取到输入')
-                        return false;
-                    } else {
-                        console.log(editing_field_name);
-                    }
-                }
-
-                // checkOperate('save', () => {
-                //     // if() {
-                //     // }
-                // })
+                checkOperate('save', () => {
+                    // if() {
+                    // }
+                    const current_html = _get_dom();
+                    localStorage
+                })
             })
             $('.load-btn').on('click', function(e) {
-            });
+            })
 
             $('.redo-btn').on('click', function(e) {
                 _load_steps(-1);
